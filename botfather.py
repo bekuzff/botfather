@@ -16,18 +16,21 @@ API_ID = 37958522
 API_HASH = '6df46040542832e1e164e65f5e8746b0'
 BOT_TOKEN = '8956644482:AAFgkx1HS6oSEe57zzFSiVCoUflLtKdSQnI'
 
+# O'zingizning Telegram ID raqamingizni shu yerga yozing (faqat o'zingiz ishlata olasiz)
+ADMIN_ID = 123456789  # O'z ID raqamingizni yozib qo'ying
+
 # --- RENDER UCHUN FLASK SERVERI ---
 app = Flask('')
 
 @app.route('/')
 def home():
-    return "BotFather Konstruktor Tizimi Ishlamoqda!"
+    return "BotFather Avtomatlashtirilgan Tizimi Ishlamoqda!"
 
 def run_flask():
     port = int(os.environ.get("PORT", 8080))
     app.run(host='0.0.0.0', port=port)
 
-# --- TELETHON KLIENTLARI ---
+# --- TELETHON KLIENTLari ---
 user_client = TelegramClient('user_session', API_ID, API_HASH)
 bot_client = TelegramClient('bot_session', API_ID, API_HASH)
 
@@ -37,18 +40,27 @@ user_states = {}
 @bot_client.on(events.NewMessage(pattern='/start'))
 async def bot_start(event):
     sender_id = event.sender_id
+    
+    # Faqat o'zingiz ishlashingiz uchun tekshiruv
+    if ADMIN_ID and sender_id != ADMIN_ID:
+        await event.respond("❌ Kechirasiz, bu bot faqat uning egasi uchun ishlaydi.")
+        return
+
     user_states[sender_id] = {'step': 'waiting_for_name'}
     await event.respond(
-        "🤖 **BotFather Konstruktoriga xush kelibsiz!**\n\n"
+        "🤖 **BotFather Avto-Yaratuvchi ishga tushdi!**\n\n"
         "Yangi bot yaratish uchun menga botingiz uchun **Ism (Title)** yuboring.\n"
-        "_(Masalan: Mening Botim)_"
+        "_(Masalan: Mening Ajoyib Botim)_"
     )
 
 @bot_client.on(events.NewMessage(pattern=r'^(?!/).*'))
 async def bot_messages(event):
     sender_id = event.sender_id
-    text = event.raw_text.strip()
     
+    if ADMIN_ID and sender_id != ADMIN_ID:
+        return
+        
+    text = event.raw_text.strip()
     state = user_states.get(sender_id)
     if not state:
         return
@@ -56,9 +68,9 @@ async def bot_messages(event):
     if state.get('step') == 'waiting_for_name':
         user_states[sender_id] = {'step': 'waiting_for_username', 'name': text}
         await event.respond(
-            f"✅ Bot nomi qabul qilindi: **{text}**\n\n"
-            "Endi botingiz uchun **Username** yuboring (oxiri `_bot` yoki `bot` bilan tugashi shart).\n"
-            "_(Masalan: my_new_test_bot)_"
+            f"✅ Bot nomi saqlandi: **{text}**\n\n"
+            "Endi botingiz uchun **Username** yuboring (oxiri `bot` yoki `_bot` bilan tugashi kerak).\n"
+            "_(Masalan: my_super_bot)_"
         )
         
     elif state.get('step') == 'waiting_for_username':
@@ -66,14 +78,15 @@ async def bot_messages(event):
         bot_username = text
         
         if not (bot_username.endswith('bot') or bot_username.endswith('_bot')):
-            await event.respond("❌ Xato! Username albatta `bot` yoki `_bot` bilan tugashi kerak. Qaytadan yuboring:")
+            await event.respond("❌ Xato! Username albatta `bot` yoki `_bot` bilan tugashi shart. Qaytadan yuboring:")
             return
             
-        await event.respond("⏳ @BotFather bilan bog'lanib, botingiz avtomatik ochilmoqda, biroz kuting...")
+        await event.respond("⏳ @BotFather bilan bog'lanib, bot avtomatik ravishda ochilmoqda, kuting...")
         
         try:
             botfather = await user_client.get_entity('BotFather')
             
+            # BotFather bilan muloqotni boshlash
             await user_client.send_message(botfather, '/newbot')
             await asyncio.sleep(1.5)
             
@@ -91,14 +104,14 @@ async def bot_messages(event):
             
             if token_found:
                 await event.respond(
-                    f"🎉 **Tabriklayman! Botingiz muvaffaqiyatli yaratildi!**\n\n"
+                    f"🎉 **Bot muvaffaqiyatli yaratildi!**\n\n"
                     f"📌 Nomi: {bot_name}\n"
                     f"🔗 Username: @{bot_username}\n\n"
                     f"🔑 **Bot Tokeni:**\n{token_found}\n\n"
                     f"Yangi bot ochish uchun /start ni bosing."
                 )
             else:
-                await event.respond("⚠️ Bot yaratildi, lekin tokenni o'qib bo'lmadi. @BotFather tarixini tekshiring.")
+                await event.respond("⚠️ Bot ochildi, lekin tokenni xabarlardan olib bo'lmadi. @BotFather chatini tekshiring.")
                 
         except Exception as e:
             await event.respond(f"❌ Xatolik yuz berdi: `{str(e)}`")
