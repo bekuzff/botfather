@@ -21,23 +21,19 @@ app = Flask('')
 
 @app.route('/')
 def home():
-    print("Ping received!")
-    return "BotFather Klon Tizimi Mukammal Ishlamoqda!"
+    return "BotFather Konstruktor Tizimi Ishlamoqda!"
 
 def run_flask():
     port = int(os.environ.get("PORT", 8080))
     app.run(host='0.0.0.0', port=port)
 
 # --- TELETHON KLIENTLARI ---
-# 1. UserBot (BotFather bilan gaplashish uchun - shaxsiy sessiya)
 user_client = TelegramClient('user_session', API_ID, API_HASH)
-
-# 2. Asosiy Bot (Foydalanuvchilar bilan muloqot qilish uchun)
 bot_client = TelegramClient('bot_session', API_ID, API_HASH)
 
 user_states = {}
 
-# --- ASOSIY BOT QISMI (Foydalanuvchilar yozadigan joy) ---
+# --- ASOSIY BOT QISMI ---
 @bot_client.on(events.NewMessage(pattern='/start'))
 async def bot_start(event):
     sender_id = event.sender_id
@@ -45,7 +41,7 @@ async def bot_start(event):
     await event.respond(
         "🤖 **BotFather Konstruktoriga xush kelibsiz!**\n\n"
         "Yangi bot yaratish uchun menga botingiz uchun **Ism (Title)** yuboring.\n"
-        "_(Masalan: Mening Yangi Botim)_"
+        "_(Masalan: Mening Botim)_"
     )
 
 @bot_client.on(events.NewMessage(pattern=r'^(?!/).*'))
@@ -62,7 +58,7 @@ async def bot_messages(event):
         await event.respond(
             f"✅ Bot nomi qabul qilindi: **{text}**\n\n"
             "Endi botingiz uchun **Username** yuboring (oxiri `_bot` yoki `bot` bilan tugashi shart).\n"
-            "_(Masalan: my_super_new_bot)_"
+            "_(Masalan: my_new_test_bot)_"
         )
         
     elif state.get('step') == 'waiting_for_username':
@@ -76,19 +72,17 @@ async def bot_messages(event):
         await event.respond("⏳ @BotFather bilan bog'lanib, botingiz avtomatik ochilmoqda, biroz kuting...")
         
         try:
-            # UserBot orqali @BotFather ga buyruq yuboramiz (Cheklovlarsiz ishlaydi!)
             botfather = await user_client.get_entity('BotFather')
             
             await user_client.send_message(botfather, '/newbot')
-            await asyncio.sleep(1)
+            await asyncio.sleep(1.5)
             
             await user_client.send_message(botfather, bot_name)
-            await asyncio.sleep(1)
+            await asyncio.sleep(1.5)
             
             await user_client.send_message(botfather, bot_username)
-            await asyncio.sleep(2)
+            await asyncio.sleep(2.5)
             
-            # BotFather'ning javobini o'qib, tokenni olamiz
             token_found = None
             async for message in user_client.iter_messages(botfather, limit=3):
                 if message.text and ("HTTP API" in message.text or ":" in message.text):
@@ -100,11 +94,11 @@ async def bot_messages(event):
                     f"🎉 **Tabriklayman! Botingiz muvaffaqiyatli yaratildi!**\n\n"
                     f"📌 Nomi: {bot_name}\n"
                     f"🔗 Username: @{bot_username}\n\n"
-                    f"🔑 **Bot Tokeni va ma'lumotlar:**\n{token_found}\n\n"
+                    f"🔑 **Bot Tokeni:**\n{token_found}\n\n"
                     f"Yangi bot ochish uchun /start ni bosing."
                 )
             else:
-                await event.respond("⚠️ Bot yaratildi, lekin tokenni avtomatik o'qib bo'lmadi. @BotFather tarixini tekshiring.")
+                await event.respond("⚠️ Bot yaratildi, lekin tokenni o'qib bo'lmadi. @BotFather tarixini tekshiring.")
                 
         except Exception as e:
             await event.respond(f"❌ Xatolik yuz berdi: `{str(e)}`")
@@ -112,20 +106,11 @@ async def bot_messages(event):
         user_states.pop(sender_id, None)
 
 if __name__ == '__main__':
-    # 1. Flask serverini ishga tushiramiz
     t = threading.Thread(target=run_flask)
     t.start()
     
-    print("Tizim ishga tushmoqda...")
-    
-    # 2. UserBot sessiyasini ulaymiz
     user_client.start()
-    
-    # 3. Asosiy Botni ishga tushiramiz
     bot_client.start(bot_token=BOT_TOKEN)
     
-    print("Barcha botlar muvaffaqiyatli ishga tushdi!")
-    
-    # Hammasini birgalikda ushlab turamiz
     user_client.run_until_disconnected()
     bot_client.run_until_disconnected()
