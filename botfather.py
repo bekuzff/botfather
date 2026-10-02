@@ -6,18 +6,12 @@ from aiogram.dispatcher.filters.state import State, StatesGroup
 
 # --- SOZLAMALAR ---
 API_TOKEN = "8843916751:AAEaF0WS1IEhAwqGpOorfk74h3alMWu7Zvg"
-
-# Adminlarning Telegram ID raqamlari (Siz va sherigingiz):
 ADMIN_IDS = [8372285180, 8654996917]
-
-# Majburiy obuna kanallari/guruhlari ro'yxati
 REQUIRED_CHANNELS = ["@sizning_kanal"] 
 
-# Xotirada saqlanadigan bazalar
 db_free_settings = []  
 db_paid_settings = []  
 
-# FOIZLI NASTROYKALAR (5 mingga arzonlashtirilgan variant)
 FOIZLI_NASTROYKALAR_TEXT = """
 ⚙️ **FOIZLI NASTROYKALAR (HEADSHOT & DPI)** 🎮
 
@@ -35,7 +29,6 @@ FOIZLI_NASTROYKALAR_TEXT = """
 
 ALMAZ_TEXT = """
 💎 **ALMAZ NARXLARI**
-
 🆔 **ID ORQALI QBERAMIZ** ⚡️
 
 🔹 110 💎 - 11.000 uzs ✅
@@ -45,11 +38,6 @@ ALMAZ_TEXT = """
 🔹 1166 💎 - 109.000 uzs ✅
 🔹 2398 💎 - 212.000 uzs ✅
 🔹 6160 💎 - 535.000 uzs ✅
-
-📦 **Vaucherlar va Paketlar:**
-🔸 Mini haftalik (90 💎) - 7.000 uzs ✅
-🔸 Haftalik (450 💎) - 20.000 uzs ✅
-🔸 Oylik (2600 💎) - 80.000 uzs ✅ *(2 tadan ko'p oselar 78 mingdan)*
 
 💬 **Murojaat uchun:** @jasurbrzl
 """
@@ -96,8 +84,7 @@ def get_main_menu(user_id: int):
 @dp.message_handler(commands=['start'])
 async def cmd_start(message: types.Message):
     user_id = message.from_user.id
-    is_subscribed = await check_subscription(user_id)
-    if not is_subscribed:
+    if not await check_subscription(user_id):
         channels_text = "\n".join([f"👉 {ch}" for ch in REQUIRED_CHANNELS])
         markup = types.InlineKeyboardMarkup()
         markup.add(types.InlineKeyboardButton("✅ Obunani tekshirish", callback_data="check_sub"))
@@ -106,11 +93,7 @@ async def cmd_start(message: types.Message):
             reply_markup=markup
         )
         return
-
-    await message.answer(
-        "Salom! Free Fire botiga xush kelibsiz. Kerakli bo'limni tanlang:",
-        reply_markup=get_main_menu(user_id)
-    )
+    await message.answer("Salom! Free Fire botiga xush kelibsiz. Kerakli bo'limni tanlang:", reply_markup=get_main_menu(user_id))
 
 @dp.callback_query_handler(text="check_sub")
 async def process_check_sub(callback: types.CallbackQuery):
@@ -121,7 +104,7 @@ async def process_check_sub(callback: types.CallbackQuery):
     else:
         await callback.answer("❌ Hali hamma kanal/guruhlarga obuna bo'lmadingiz!", show_alert=True)
 
-@dp.message_handler(text="⚙️️ Foizli Nastroykalar")
+@dp.message_handler(text="⚙️ Foizli Nastroykalar")
 async def show_foizli(message: types.Message):
     if not await check_subscription(message.from_user.id): return
     markup = types.InlineKeyboardMarkup()
@@ -139,8 +122,7 @@ async def show_almaz(message: types.Message):
 async def show_free(message: types.Message):
     if not await check_subscription(message.from_user.id): return
     if not db_free_settings:
-        await message.answer("⚠️ Hozircha tekin nastroykalar mavjud emas, tez kunda qo'shiladi!")
-        return
+        return await message.answer("⚠️ Hozircha tekin nastroykalar mavjud emas!")
     markup = types.InlineKeyboardMarkup(row_width=1)
     for item in db_free_settings:
         markup.add(types.InlineKeyboardButton(f"⚙️ {item['name']}", callback_data=f"get_free_{item['id']}"))
@@ -152,15 +134,12 @@ async def send_free(callback: types.CallbackQuery):
     item = next((i for i in db_free_settings if i['id'] == item_id), None)
     if item:
         await callback.message.answer(f"Siz tanlagan nastroyka: **{item['name']}**\n\n{item['content']}", parse_mode="Markdown")
-    else:
-        await callback.answer("Topilmadi!", show_alert=True)
 
 @dp.message_handler(text="💎 Soft Nastroyka (Pullik)")
 async def show_paid(message: types.Message):
     if not await check_subscription(message.from_user.id): return
     if not db_paid_settings:
-        await message.answer("⚠️ Hozircha pullik soft nastroykalar mavjud emas.")
-        return
+        return await message.answer("⚠️ Hozircha pullik soft nastroykalar mavjud emas.")
     markup = types.InlineKeyboardMarkup(row_width=1)
     for item in db_paid_settings:
         markup.add(types.InlineKeyboardButton(f"💎 {item['name']} (Pullik)", callback_data=f"get_paid_{item['id']}"))
@@ -172,8 +151,6 @@ async def send_paid(callback: types.CallbackQuery):
     item = next((i for i in db_paid_settings if i['id'] == item_id), None)
     if item:
         await callback.message.answer(f"💎 **{item['name']}**\n\n{item['content']}\n\n*Sotib olish uchun adminga murojaat qiling.*", parse_mode="Markdown")
-    else:
-        await callback.answer("Topilmadi!", show_alert=True)
 
 @dp.message_handler(text="👑 Admin Panel")
 async def admin_panel(message: types.Message):
@@ -206,8 +183,7 @@ async def process_free_content(message: types.Message, state: FSMContext):
     data = await state.get_data()
     name = data.get("name")
     content = message.text if message.text else "Fayl yuklandi"
-    new_id = len(db_free_settings) + 1
-    db_free_settings.append({"id": new_id, "name": name, "content": content})
+    db_free_settings.append({"id": len(db_free_settings) + 1, "name": name, "content": content})
     await state.finish()
     await message.answer("✅ Tekin nastroyka qo'shildi!", reply_markup=get_main_menu(message.from_user.id))
 
@@ -245,8 +221,7 @@ async def process_paid_content(message: types.Message, state: FSMContext):
     data = await state.get_data()
     name = data.get("name")
     content = message.text if message.text else "Fayl yuklandi"
-    new_id = len(db_paid_settings) + 1
-    db_paid_settings.append({"id": new_id, "name": name, "content": content})
+    db_paid_settings.append({"id": len(db_paid_settings) + 1, "name": name, "content": content})
     await state.finish()
     await message.answer("✅ Pullik soft qo'shildi!", reply_markup=get_main_menu(message.from_user.id))
 
