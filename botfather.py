@@ -4,16 +4,14 @@ from telebot import types
 # --- SOZLAMALAR ---
 API_TOKEN = "8843916751:AAEaF0WS1IEhAwqGpOorfk74h3alMWu7Zvg"
 ADMIN_IDS = [8372285180, 8654996917]
-REQUIRED_CHANNELS = ["@bekuzbotmaker"]  # Majburiy kanal
+REQUIRED_CHANNELS = ["@bekuzbotmaker"]  # Shu yerga qaysi kanal kerak bo'lsa yozing yoki bo'sh qoldiring []
 
 bot = telebot.TeleBot(API_TOKEN)
 
-# Bazalar
 db_free_settings = []
 db_paid_settings = []
 user_states = {}
 
-# O'zgartiriladigan asosiy matnlar bazasi
 texts_db = {
     "foizli": """
 ⚙️ **FOIZLI NASTROYKALAR (HEADSHOT & DPI)** 🎮
@@ -45,7 +43,6 @@ texts_db = {
 """
 }
 
-# Xatosiz obunani tekshirish funksiyasi
 def check_subscription(user_id: int) -> bool:
     if not REQUIRED_CHANNELS:
         return True
@@ -55,11 +52,9 @@ def check_subscription(user_id: int) -> bool:
             if member.status in ['left', 'kicked']:
                 return False
         except Exception:
-            # Agar kanal topilmasa yoki bot admin bo'lmasa, xato chiqib to'xtab qolmasligi uchun True qaytaradi yoki tekshiruvdan o'tkazadi
             pass
     return True
 
-# Asosiy menyu
 def get_main_menu(user_id: int):
     keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
     keyboard.add(
@@ -75,7 +70,6 @@ def get_main_menu(user_id: int):
         keyboard.add(types.KeyboardButton("👑 Admin Panel"))
     return keyboard
 
-# /start komandasi
 @bot.message_handler(commands=['start'])
 def cmd_start(message):
     user_id = message.from_user.id
@@ -83,7 +77,6 @@ def cmd_start(message):
         channels_text = "\n".join([f"👉 {ch}" for ch in REQUIRED_CHANNELS])
         markup = types.InlineKeyboardMarkup()
         markup.add(types.InlineKeyboardButton("✅ Obunani tekshirish", callback_data="check_sub"))
-        markup.add(types.InlineKeyboardButton("📢 Kanalga o'tish", url="https://t.me/bekuzbotmaker"))
         bot.send_message(
             message.chat.id,
             f"❌ Botdan foydalanish uchun quyidagi kanalga obuna bo'lishingiz kerak:\n\n{channels_text}",
@@ -102,7 +95,7 @@ def process_check_sub(call):
             pass
         bot.send_message(call.message.chat.id, "Rahmat! Obuna tasdiqlandi. Asosiy menyu:", reply_markup=get_main_menu(user_id))
     else:
-        bot.answer_callback_query(call.id, "❌ Hali kanalga obuna bo'lmadingiz yoki obuna topilmadi!", show_alert=True)
+        bot.answer_callback_query(call.id, "❌ Hali kanalga obuna bo'lmadingiz!", show_alert=True)
 
 @bot.message_handler(func=lambda message: message.text == "⚙️ Foizli Nastroykalar")
 def show_foizli(message):
@@ -152,7 +145,6 @@ def send_paid(call):
     if item:
         bot.send_message(call.message.chat.id, f"💎 **{item['name']}**\n\n{item['content']}\n\n*Sotib olish uchun adminga murojaat qiling.*", parse_mode="Markdown")
 
-# --- ADMIN PANEL ---
 @bot.message_handler(func=lambda message: message.text == "👑 Admin Panel")
 def admin_panel(message):
     if message.from_user.id not in ADMIN_IDS: return
@@ -188,10 +180,8 @@ def process_dfree(call):
     item_id = int(call.data.split("_")[1])
     global db_free_settings
     db_free_settings = [i for i in db_free_settings if i['id'] != item_id]
-    try:
-        bot.delete_message(call.message.chat.id, call.message.message_id)
-    except Exception:
-        pass
+    try: bot.delete_message(call.message.chat.id, call.message.message_id)
+    except: pass
     bot.send_message(call.message.chat.id, "✅ O'chirildi!")
 
 @bot.message_handler(func=lambda message: message.text == "➕ Soft (Pullik) qo'shish")
@@ -214,10 +204,8 @@ def process_dpaid(call):
     item_id = int(call.data.split("_")[1])
     global db_paid_settings
     db_paid_settings = [i for i in db_paid_settings if i['id'] != item_id]
-    try:
-        bot.delete_message(call.message.chat.id, call.message.message_id)
-    except Exception:
-        pass
+    try: bot.delete_message(call.message.chat.id, call.message.message_id)
+    except: pass
     bot.send_message(call.message.chat.id, "✅ O'chirildi!")
 
 @bot.message_handler(func=lambda message: message.text == "✏️ Foizli Nastroykani o'zgartirish")
@@ -252,10 +240,8 @@ def process_remove_channel(call):
     ch_name = call.data.replace("rm_ch_", "")
     if ch_name in REQUIRED_CHANNELS:
         REQUIRED_CHANNELS.remove(ch_name)
-    try:
-        bot.delete_message(call.message.chat.id, call.message.message_id)
-    except Exception:
-        pass
+    try: bot.delete_message(call.message.chat.id, call.message.message_id)
+    except: pass
     bot.send_message(call.message.chat.id, f"✅ {ch_name} majburiy obunalardan olib tashlandi!")
 
 @bot.message_handler(func=lambda message: message.from_user.id in user_states)
