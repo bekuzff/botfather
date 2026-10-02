@@ -1,16 +1,17 @@
-import logging
-from aiogram import Bot, Dispatcher, executor, types
-from aiogram.contrib.fsm_storage.memory import MemoryStorage
-from aiogram.dispatcher import FSMContext
-from aiogram.dispatcher.filters.state import State, StatesGroup
+import telebot
+from telebot import types
 
 # --- SOZLAMALAR ---
 API_TOKEN = "8843916751:AAEaF0WS1IEhAwqGpOorfk74h3alMWu7Zvg"
 ADMIN_IDS = [8372285180, 8654996917]
-REQUIRED_CHANNELS = ["@sizning_kanal"] 
+REQUIRED_CHANNELS = ["@sizning_kanal"]  # Majburiy kanallar username'lari
 
-db_free_settings = []  
-db_paid_settings = []  
+bot = telebot.TeleBot(API_TOKEN)
+
+# Vaqtinchalik baza (xotirada saqlash uchun)
+db_free_settings = []
+db_paid_settings = []
+user_states = {}  # Adminlar uchun holatlar (FSM vazifasini bajaradi)
 
 FOIZLI_NASTROYKALAR_TEXT = """
 ⚙️ **FOIZLI NASTROYKALAR (HEADSHOT & DPI)** 🎮
@@ -42,30 +43,20 @@ ALMAZ_TEXT = """
 💬 **Murojaat uchun:** @jasurbrzl
 """
 
-logging.basicConfig(level=logging.INFO)
-bot = Bot(token=API_TOKEN)
-storage = MemoryStorage()
-dp = Dispatcher(bot, storage=storage)
-
-class AdminStates(StatesGroup):
-    waiting_for_free_name = State()
-    waiting_for_free_content = State()
-    waiting_for_paid_name = State()
-    waiting_for_paid_content = State()
-    waiting_for_channel = State()
-
-async def check_subscription(user_id: int) -> bool:
+# Obunani tekshirish funksiyasi
+def check_subscription(user_id: int) -> bool:
     if not REQUIRED_CHANNELS:
         return True
     for channel in REQUIRED_CHANNELS:
         try:
-            member = await bot.get_chat_member(chat_id=channel, user_id=user_id)
+            member = bot.get_chat_member(chat_id=channel, user_id=user_id)
             if member.status not in ["member", "administrator", "creator"]:
                 return False
         except Exception:
             return False
     return True
 
+# Asosiy menyu klaviaturasi
 def get_main_menu(user_id: int):
     keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
     keyboard.add(
@@ -81,197 +72,202 @@ def get_main_menu(user_id: int):
         keyboard.add(types.KeyboardButton("👑 Admin Panel"))
     return keyboard
 
-@dp.message_handler(commands=['start'])
-async def cmd_start(message: types.Message):
+# /start komandasi
+@bot.message_handler(commands=['start'])
+def cmd_start(message):
     user_id = message.from_user.id
-    if not await check_subscription(user_id):
+    if not check_subscription(user_id):
         channels_text = "\n".join([f"👉 {ch}" for ch in REQUIRED_CHANNELS])
         markup = types.InlineKeyboardMarkup()
         markup.add(types.InlineKeyboardButton("✅ Obunani tekshirish", callback_data="check_sub"))
-        await message.answer(
+        bot.send_message(
+            message.chat.id,
             f"❌ Botdan foydalanish uchun quyidagi kanal yoki guruhlarga obuna bo'lishingiz kerak:\n\n{channels_text}",
             reply_markup=markup
         )
         return
-    await message.answer("Salom! Free Fire botiga xush kelibsiz. Kerakli bo'limni tanlang:", reply_markup=get_main_menu(user_id))
+    bot.send_message(message.chat.id, "Salom! Free Fire botiga xush kelibsiz. Kerakli bo'limni tanlang:", reply_markup=get_main_menu(user_id))
 
-@dp.callback_query_handler(text="check_sub")
-async def process_check_sub(callback: types.CallbackQuery):
-    user_id = callback.from_user.id
-    if await check_subscription(user_id):
-        await callback.message.delete()
-        await callback.message.answer("Rahmat! Obuna tasdiqlandi. Asosiy menyu:", reply_markup=get_main_menu(user_id))
+# Obunani tekshirish tugmasi
+@bot.callback_query_handler(func=lambda call: call.data == "check_sub")
+def process_check_sub(call):
+    user_id = call.from_user.id
+    if check_subscription(user_id):
+        bot.delete_message(call.message.chat.id, call.message.message_id)
+        bot.send_message(call.message.chat.id, "Rahmat! Obuna tasdiqlandi. Asosiy menyu:", reply_markup=get_main_menu(user_id))
     else:
-        await callback.answer("❌ Hali hamma kanal/guruhlarga obuna bo'lmadingiz!", show_alert=True)
+        bot.answer_callback_query(call.id, "❌ Hali hamma kanal/guruhlarga obuna bo'lmadingiz!", show_alert=True)
 
-@dp.message_handler(text="⚙️ Foizli Nastroykalar")
-async def show_foizli(message: types.Message):
-    if not await check_subscription(message.from_user.id): return
+# Bo'limlar
+@bot.message_handler(func=lambda message: message.text == "⚙️ Foizli Nastroykalar")
+def show_foizli(message):
+    if not check_subscription(message.from_user.id): return
     markup = types.InlineKeyboardMarkup()
     markup.add(types.InlineKeyboardButton("🛒 Sotib olish / Murojaat", url="https://t.me/jasurbrzl"))
-    await message.answer(FOIZLI_NASTROYKALAR_TEXT, parse_mode="Markdown", reply_markup=markup)
+    bot.send_message(message.chat.id, FOIZLI_NASTROYKALAR_TEXT, parse_mode="Markdown", reply_markup=markup)
 
-@dp.message_handler(text="💎 Almaz Narxlari")
-async def show_almaz(message: types.Message):
-    if not await check_subscription(message.from_user.id): return
+@bot.message_handler(func=lambda message: message.text == "💎 Almaz Narxlari")
+def show_almaz(message):
+    if not check_subscription(message.from_user.id): return
     markup = types.InlineKeyboardMarkup()
     markup.add(types.InlineKeyboardButton("🛒 Xarid qilish / Murojaat", url="https://t.me/jasurbrzl"))
-    await message.answer(ALMAZ_TEXT, parse_mode="Markdown", reply_markup=markup)
+    bot.send_message(message.chat.id, ALMAZ_TEXT, parse_mode="Markdown", reply_markup=markup)
 
-@dp.message_handler(text="🎁 Tekin Nastroykalar")
-async def show_free(message: types.Message):
-    if not await check_subscription(message.from_user.id): return
+@bot.message_handler(func=lambda message: message.text == "🎁 Tekin Nastroykalar")
+def show_free(message):
+    if not check_subscription(message.from_user.id): return
     if not db_free_settings:
-        return await message.answer("⚠️ Hozircha tekin nastroykalar mavjud emas!")
+        return bot.send_message(message.chat.id, "⚠️ Hozircha tekin nastroykalar mavjud emas!")
     markup = types.InlineKeyboardMarkup(row_width=1)
     for item in db_free_settings:
         markup.add(types.InlineKeyboardButton(f"⚙️ {item['name']}", callback_data=f"get_free_{item['id']}"))
-    await message.answer("🎁 Mavjud tekin nastroykalar:", reply_markup=markup)
+    bot.send_message(message.chat.id, "🎁 Mavjud tekin nastroykalar:", reply_markup=markup)
 
-@dp.callback_query_handler(text_startswith="get_free_")
-async def send_free(callback: types.CallbackQuery):
-    item_id = int(callback.data.split("_")[2])
+@bot.callback_query_handler(func=lambda call: call.data.startswith("get_free_"))
+def send_free(call):
+    item_id = int(call.data.split("_")[2])
     item = next((i for i in db_free_settings if i['id'] == item_id), None)
     if item:
-        await callback.message.answer(f"Siz tanlagan nastroyka: **{item['name']}**\n\n{item['content']}", parse_mode="Markdown")
+        bot.send_message(call.message.chat.id, f"Siz tanlagan nastroyka: **{item['name']}**\n\n{item['content']}", parse_mode="Markdown")
 
-@dp.message_handler(text="💎 Soft Nastroyka (Pullik)")
-async def show_paid(message: types.Message):
-    if not await check_subscription(message.from_user.id): return
+@bot.message_handler(func=lambda message: message.text == "💎 Soft Nastroyka (Pullik)")
+def show_paid(message):
+    if not check_subscription(message.from_user.id): return
     if not db_paid_settings:
-        return await message.answer("⚠️ Hozircha pullik soft nastroykalar mavjud emas.")
+        return bot.send_message(message.chat.id, "⚠️ Hozircha pullik soft nastroykalar mavjud emas.")
     markup = types.InlineKeyboardMarkup(row_width=1)
     for item in db_paid_settings:
         markup.add(types.InlineKeyboardButton(f"💎 {item['name']} (Pullik)", callback_data=f"get_paid_{item['id']}"))
-    await message.answer("💎 Pullik soft nastroykalar:", reply_markup=markup)
+    bot.send_message(message.chat.id, "💎 Pullik soft nastroykalar:", reply_markup=markup)
 
-@dp.callback_query_handler(text_startswith="get_paid_")
-async def send_paid(callback: types.CallbackQuery):
-    item_id = int(callback.data.split("_")[2])
+@bot.callback_query_handler(func=lambda call: call.data.startswith("get_paid_"))
+def send_paid(call):
+    item_id = int(call.data.split("_")[2])
     item = next((i for i in db_paid_settings if i['id'] == item_id), None)
     if item:
-        await callback.message.answer(f"💎 **{item['name']}**\n\n{item['content']}\n\n*Sotib olish uchun adminga murojaat qiling.*", parse_mode="Markdown")
+        bot.send_message(call.message.chat.id, f"💎 **{item['name']}**\n\n{item['content']}\n\n*Sotib olish uchun adminga murojaat qiling.*", parse_mode="Markdown")
 
-@dp.message_handler(text="👑 Admin Panel")
-async def admin_panel(message: types.Message):
+# --- ADMIN PANEL ---
+@bot.message_handler(func=lambda message: message.text == "👑 Admin Panel")
+def admin_panel(message):
     if message.from_user.id not in ADMIN_IDS: return
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
     markup.add(types.KeyboardButton("➕ Tekin Nastroyka qo'shish"), types.KeyboardButton("🗑 Tekin Nastroykani o'chirish"))
     markup.add(types.KeyboardButton("➕ Soft (Pullik) qo'shish"), types.KeyboardButton("🗑 Soft Nastroykani o'chirish"))
     markup.add(types.KeyboardButton("📢 Obuna kanal qo'shish"), types.KeyboardButton("❌ Obuna kanalni o'chirish"))
     markup.add(types.KeyboardButton("🔙 Asosiy Menyu"))
-    await message.answer("👑 Admin boshqaruv paneli:", reply_markup=markup)
+    bot.send_message(message.chat.id, "👑 Admin boshqaruv paneli:", reply_markup=markup)
 
-@dp.message_handler(text="🔙 Asosiy Menyu")
-async def back_to_main(message: types.Message):
-    await message.answer("Asosiy menyu:", reply_markup=get_main_menu(message.from_user.id))
+@bot.message_handler(func=lambda message: message.text == "🔙 Asosiy Menyu")
+def back_to_main(message):
+    bot.send_message(message.chat.id, "Asosiy menyu:", reply_markup=get_main_menu(message.from_user.id))
 
-@dp.message_handler(text="➕ Tekin Nastroyka qo'shish")
-async def add_free_start(message: types.Message):
+# Admin: Tekin nastroyka qo'shish
+@bot.message_handler(func=lambda message: message.text == "➕ Tekin Nastroyka qo'shish")
+def add_free_start(message):
     if message.from_user.id not in ADMIN_IDS: return
-    await message.answer("Yangi tekin nastroyka uchun **nom** kiriting:")
-    await AdminStates.waiting_for_free_name.set()
+    user_states[message.from_user.id] = {"step": "wait_free_name"}
+    bot.send_message(message.chat.id, "Yangi tekin nastroyka uchun **nom** kiriting:")
 
-@dp.message_handler(state=AdminStates.waiting_for_free_name)
-async def process_free_name(message: types.Message, state: FSMContext):
-    await state.update_data(name=message.text)
-    await message.answer("Endi ushbu nastroyka uchun **matn yoki fayl** yuboring:")
-    await AdminStates.waiting_for_free_content.set()
-
-@dp.message_handler(state=AdminStates.waiting_for_free_content, content_types=types.ContentTypes.ANY)
-async def process_free_content(message: types.Message, state: FSMContext):
-    data = await state.get_data()
-    name = data.get("name")
-    content = message.text if message.text else "Fayl yuklandi"
-    db_free_settings.append({"id": len(db_free_settings) + 1, "name": name, "content": content})
-    await state.finish()
-    await message.answer("✅ Tekin nastroyka qo'shildi!", reply_markup=get_main_menu(message.from_user.id))
-
-@dp.message_handler(text="🗑 Tekin Nastroykani o'chirish")
-async def del_free_menu(message: types.Message):
+# Admin: Tekin nastroykani o'chirish menyusi
+@bot.message_handler(func=lambda message: message.text == "🗑 Tekin Nastroykani o'chirish")
+def del_free_menu(message):
     if message.from_user.id not in ADMIN_IDS: return
-    if not db_free_settings: return await message.answer("O'chiriladigani yo'q.")
+    if not db_free_settings: return bot.send_message(message.chat.id, "O'chiriladigani yo'q.")
     markup = types.InlineKeyboardMarkup(row_width=1)
     for i in db_free_settings:
         markup.add(types.InlineKeyboardButton(f"❌ O'chirish: {i['name']}", callback_data=f"dfree_{i['id']}"))
-    await message.answer("O'chirish uchun tanlang:", reply_markup=markup)
+    bot.send_message(message.chat.id, "O'chirish uchun tanlang:", reply_markup=markup)
 
-@dp.callback_query_handler(text_startswith="dfree_")
-async def process_dfree(callback: types.CallbackQuery):
-    item_id = int(callback.data.split("_")[1])
+@bot.callback_query_handler(func=lambda call: call.data.startswith("dfree_"))
+def process_dfree(call):
+    item_id = int(call.data.split("_")[1])
     global db_free_settings
     db_free_settings = [i for i in db_free_settings if i['id'] != item_id]
-    await callback.message.delete()
-    await callback.message.answer("✅ O'chirildi!")
+    bot.delete_message(call.message.chat.id, call.message.message_id)
+    bot.send_message(call.message.chat.id, "✅ O'chirildi!")
 
-@dp.message_handler(text="➕ Soft (Pullik) qo'shish")
-async def add_paid_start(message: types.Message):
+# Admin: Pullik soft qo'shish
+@bot.message_handler(func=lambda message: message.text == "➕ Soft (Pullik) qo'shish")
+def add_paid_start(message):
     if message.from_user.id not in ADMIN_IDS: return
-    await message.answer("Pullik soft nastroyka uchun **nom** kiriting:")
-    await AdminStates.waiting_for_paid_name.set()
+    user_states[message.from_user.id] = {"step": "wait_paid_name"}
+    bot.send_message(message.chat.id, "Pullik soft nastroyka uchun **nom** kiriting:")
 
-@dp.message_handler(state=AdminStates.waiting_for_paid_name)
-async def process_paid_name(message: types.Message, state: FSMContext):
-    await state.update_data(name=message.text)
-    await message.answer("Endi soft uchun **matn yoki fayl** yuboring:")
-    await AdminStates.waiting_for_paid_content.set()
-
-@dp.message_handler(state=AdminStates.waiting_for_paid_content, content_types=types.ContentTypes.ANY)
-async def process_paid_content(message: types.Message, state: FSMContext):
-    data = await state.get_data()
-    name = data.get("name")
-    content = message.text if message.text else "Fayl yuklandi"
-    db_paid_settings.append({"id": len(db_paid_settings) + 1, "name": name, "content": content})
-    await state.finish()
-    await message.answer("✅ Pullik soft qo'shildi!", reply_markup=get_main_menu(message.from_user.id))
-
-@dp.message_handler(text="🗑 Soft Nastroykani o'chirish")
-async def del_paid_menu(message: types.Message):
+@bot.message_handler(func=lambda message: message.text == "🗑 Soft Nastroykani o'chirish")
+def del_paid_menu(message):
     if message.from_user.id not in ADMIN_IDS: return
-    if not db_paid_settings: return await message.answer("O'chiriladigani yo'q.")
+    if not db_paid_settings: return bot.send_message(message.chat.id, "O'chiriladigani yo'q.")
     markup = types.InlineKeyboardMarkup(row_width=1)
     for i in db_paid_settings:
         markup.add(types.InlineKeyboardButton(f"❌ O'chirish: {i['name']}", callback_data=f"dpaid_{i['id']}"))
-    await message.answer("O'chirish uchun tanlang:", reply_markup=markup)
+    bot.send_message(message.chat.id, "O'chirish uchun tanlang:", reply_markup=markup)
 
-@dp.callback_query_handler(text_startswith="dpaid_")
-async def process_dpaid(callback: types.CallbackQuery):
-    item_id = int(callback.data.split("_")[1])
+@bot.callback_query_handler(func=lambda call: call.data.startswith("dpaid_"))
+def process_dpaid(call):
+    item_id = int(call.data.split("_")[1])
     global db_paid_settings
     db_paid_settings = [i for i in db_paid_settings if i['id'] != item_id]
-    await callback.message.delete()
-    await callback.message.answer("✅ O'chirildi!")
+    bot.delete_message(call.message.chat.id, call.message.message_id)
+    bot.send_message(call.message.chat.id, "✅ O'chirildi!")
 
-@dp.message_handler(text="📢 Obuna kanal qo'shish")
-async def add_channel_start(message: types.Message):
+# Admin: Kanal qo'shish
+@bot.message_handler(func=lambda message: message.text == "📢 Obuna kanal qo'shish")
+def add_channel_start(message):
     if message.from_user.id not in ADMIN_IDS: return
-    await message.answer("Yangi kanal yoki guruh username'ini yuboring (masalan: `@kanal_nomi`):")
-    await AdminStates.waiting_for_channel.set()
+    user_states[message.from_user.id] = {"step": "wait_channel"}
+    bot.send_message(message.chat.id, "Yangi kanal yoki guruh username'ini yuboring (masalan: `@kanal_nomi`):")
 
-@dp.message_handler(state=AdminStates.waiting_for_channel)
-async def process_add_channel(message: types.Message, state: FSMContext):
-    channel = message.text.strip()
-    if channel not in REQUIRED_CHANNELS:
-        REQUIRED_CHANNELS.append(channel)
-    await state.finish()
-    await message.answer(f"✅ {channel} majburiy obunalarga qo'shildi!", reply_markup=get_main_menu(message.from_user.id))
-
-@dp.message_handler(text="❌ Obuna kanalni o'chirish")
-async def remove_channel_menu(message: types.Message):
+@bot.message_handler(func=lambda message: message.text == "❌ Obuna kanalni o'chirish")
+def remove_channel_menu(message):
     if message.from_user.id not in ADMIN_IDS: return
-    if not REQUIRED_CHANNELS: return await message.answer("Hozircha majburiy kanallar yo'q.")
+    if not REQUIRED_CHANNELS: return bot.send_message(message.chat.id, "Hozircha majburiy kanallar yo'q.")
     markup = types.InlineKeyboardMarkup(row_width=1)
     for ch in REQUIRED_CHANNELS:
         markup.add(types.InlineKeyboardButton(f"O'chirish: {ch}", callback_data=f"rm_ch_{ch}"))
-    await message.answer("O'chiriladigan kanalni tanlang:", reply_markup=markup)
+    bot.send_message(message.chat.id, "O'chiriladigan kanalni tanlang:", reply_markup=markup)
 
-@dp.callback_query_handler(text_startswith="rm_ch_")
-async def process_remove_channel(callback: types.CallbackQuery):
-    ch_name = callback.data.replace("rm_ch_", "")
+@bot.callback_query_handler(func=lambda call: call.data.startswith("rm_ch_"))
+def process_remove_channel(call):
+    ch_name = call.data.replace("rm_ch_", "")
     if ch_name in REQUIRED_CHANNELS:
         REQUIRED_CHANNELS.remove(ch_name)
-    await callback.message.delete()
-    await callback.message.answer(f"✅ {ch_name} majburiy obunalardan olib tashlandi!")
+    bot.delete_message(call.message.chat.id, call.message.message_id)
+    bot.send_message(call.message.chat.id, f"✅ {ch_name} majburiy obunalardan olib tashlandi!")
 
+# Admin matn qadamlarini boshqarish (FSM o'rnida)
+@bot.message_handler(func=lambda message: message.from_user.id in user_states)
+def handle_admin_states(message):
+    user_id = message.from_user.id
+    state = user_states.get(user_id, {}).get("step")
+    
+    if state == "wait_free_name":
+        user_states[user_id] = {"step": "wait_free_content", "name": message.text}
+        bot.send_message(message.chat.id, "Endi ushbu tekin nastroyka uchun **matn yoki fayl/ma'lumot** yuboring:")
+    elif state == "wait_free_content":
+        name = user_states[user_id]["name"]
+        content = message.text if message.text else "Fayl yuklandi"
+        db_free_settings.append({"id": len(db_free_settings) + 1, "name": name, "content": content})
+        del user_states[user_id]
+        bot.send_message(message.chat.id, "✅ Tekin nastroyka qo'shildi!", reply_markup=get_main_menu(user_id))
+        
+    elif state == "wait_paid_name":
+        user_states[user_id] = {"step": "wait_paid_content", "name": message.text}
+        bot.send_message(message.chat.id, "Endi pullik soft uchun **matn yoki ma'lumot** yuboring:")
+    elif state == "wait_paid_content":
+        name = user_states[user_id]["name"]
+        content = message.text if message.text else "Fayl yuklandi"
+        db_paid_settings.append({"id": len(db_paid_settings) + 1, "name": name, "content": content})
+        del user_states[user_id]
+        bot.send_message(message.chat.id, "✅ Pullik soft qo'shildi!", reply_markup=get_main_menu(user_id))
+        
+    elif state == "wait_channel":
+        channel = message.text.strip()
+        if channel not in REQUIRED_CHANNELS:
+            REQUIRED_CHANNELS.append(channel)
+        del user_states[user_id]
+        bot.send_message(message.chat.id, f"✅ {channel} majburiy obunalarga qo'shildi!", reply_markup=get_main_menu(user_id))
+
+# Botni uzluksiz ishga tushirish
 if __name__ == '__main__':
-    executor.start_polling(dp, skip_updates=True)
+    bot.infinity_polling(skip_pending=True)
