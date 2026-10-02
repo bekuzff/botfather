@@ -4,7 +4,7 @@ from telebot import types
 # --- SOZLAMALAR ---
 API_TOKEN = "8843916751:AAEaF0WS1IEhAwqGpOorfk74h3alMWu7Zvg"
 ADMIN_IDS = [8372285180, 8654996917]
-REQUIRED_CHANNELS = []  # Majburiy kanal kerak bo'lsa ["@kanal_nomi"] ko'rinishida yozing
+REQUIRED_CHANNELS = []  # Majburiy kanal bo'lmasligi uchun bu joyni bo'sh qoldiring: []
 
 bot = telebot.TeleBot(API_TOKEN)
 
@@ -19,17 +19,17 @@ texts_db = {
 🔹 **25% NASTROYKA** — 20 000 so'm ⚙️
 🔹 **50% NASTROYKA** — 30 000 so'm ⚙️
 🔹 **75% NASTROYKA** — 40 000 so'm ⚙️
-🔹 **85% NASTROYKA** — 50 000 so'm ⚙️️
+🔹 **85% NASTROYKA** — 50 000 so'm ⚙️
 🔹 **90% NASTROYKA** — 60 000 so'm ⚙️
 🔹 **92% NASTROYKA** — 65 000 so'm ⚙️
-🔹 **94% NASTROYKA** — 80 000 so'm ⚙
+🔹 **94% NASTROYKA** — 80 000 so'm ⚙️
 🔹 **97% NASTROYKA** — 90 000 so'm ⚙️
 
-💬 **Sotib olish uchun adminga yozing:** @jasurbrzl
+💬 **Sotib olish uchun adminga yozing:** @Barkamoly
 """,
     "almaz": """
 💎 **ALMAZ NARXLARI**
-🆔 **ID ORQALI QBERAMIZ** ⚡️️
+🆔 **ID ORQALI QBERAMIZ** ⚡️
 
 🔹 110 💎 - 11.000 uzs ✅
 🔹 220 💎 - 22.000 uzs ✅
@@ -39,7 +39,7 @@ texts_db = {
 🔹 2398 💎 - 212.000 uzs ✅
 🔹 6160 💎 - 535.000 uzs ✅
 
-💬 **Murojaat uchun:** @jasurbrzl
+💬 **Murojaat uchun:** @Barkamoly
 """
 }
 
