@@ -4,14 +4,14 @@ from telebot import types
 # --- SOZLAMALAR ---
 API_TOKEN = "8843916751:AAEaF0WS1IEhAwqGpOorfk74h3alMWu7Zvg"
 ADMIN_IDS = [8372285180, 8654996917]
-REQUIRED_CHANNELS = ["@sizning_kanal"]  # Majburiy kanallar username'lari
+REQUIRED_CHANNELS = []  # Boshida bo'sh, admin o'zi panel orqali qo'shadi!
 
 bot = telebot.TeleBot(API_TOKEN)
 
-# Vaqtinchalik baza (xotirada saqlash uchun)
+# Vaqtinchalik baza
 db_free_settings = []
 db_paid_settings = []
-user_states = {}  # Adminlar uchun holatlar (FSM vazifasini bajaradi)
+user_states = {}
 
 FOIZLI_NASTROYKALAR_TEXT = """
 ⚙️ **FOIZLI NASTROYKALAR (HEADSHOT & DPI)** 🎮
@@ -22,7 +22,7 @@ FOIZLI_NASTROYKALAR_TEXT = """
 🔹 **85% NASTROYKA** — 50 000 so'm ⚙️
 🔹 **90% NASTROYKA** — 60 000 so'm ⚙️
 🔹 **92% NASTROYKA** — 65 000 so'm ⚙️
-🔹 **94% NASTROYKA** — 80 000 so'm ⚙️
+🔹 **94% NASTROYKA** — 80 000 so'm ⚙
 🔹 **97% NASTROYKA** — 90 000 so'm ⚙️
 
 💬 **Sotib olish uchun adminga yozing:** @jasurbrzl
@@ -46,7 +46,7 @@ ALMAZ_TEXT = """
 # Obunani tekshirish funksiyasi
 def check_subscription(user_id: int) -> bool:
     if not REQUIRED_CHANNELS:
-        return True
+        return True  # Agar kanal qo'shilmagan bo'lsa, tekshirmaydi va to'g'ridan-to'g'ri o'tkazadi
     for channel in REQUIRED_CHANNELS:
         try:
             member = bot.get_chat_member(chat_id=channel, user_id=user_id)
@@ -56,7 +56,7 @@ def check_subscription(user_id: int) -> bool:
             return False
     return True
 
-# Asosiy menyu klaviaturasi
+# Asosiy menyu
 def get_main_menu(user_id: int):
     keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
     keyboard.add(
@@ -88,7 +88,6 @@ def cmd_start(message):
         return
     bot.send_message(message.chat.id, "Salom! Free Fire botiga xush kelibsiz. Kerakli bo'limni tanlang:", reply_markup=get_main_menu(user_id))
 
-# Obunani tekshirish tugmasi
 @bot.callback_query_handler(func=lambda call: call.data == "check_sub")
 def process_check_sub(call):
     user_id = call.from_user.id
@@ -98,8 +97,7 @@ def process_check_sub(call):
     else:
         bot.answer_callback_query(call.id, "❌ Hali hamma kanal/guruhlarga obuna bo'lmadingiz!", show_alert=True)
 
-# Bo'limlar
-@bot.message_handler(func=lambda message: message.text == "⚙️ Foizli Nastroykalar")
+@bot.message_handler(func=lambda message: message.text == "⚙️️ Foizli Nastroykalar")
 def show_foizli(message):
     if not check_subscription(message.from_user.id): return
     markup = types.InlineKeyboardMarkup()
@@ -162,14 +160,12 @@ def admin_panel(message):
 def back_to_main(message):
     bot.send_message(message.chat.id, "Asosiy menyu:", reply_markup=get_main_menu(message.from_user.id))
 
-# Admin: Tekin nastroyka qo'shish
 @bot.message_handler(func=lambda message: message.text == "➕ Tekin Nastroyka qo'shish")
 def add_free_start(message):
     if message.from_user.id not in ADMIN_IDS: return
     user_states[message.from_user.id] = {"step": "wait_free_name"}
     bot.send_message(message.chat.id, "Yangi tekin nastroyka uchun **nom** kiriting:")
 
-# Admin: Tekin nastroykani o'chirish menyusi
 @bot.message_handler(func=lambda message: message.text == "🗑 Tekin Nastroykani o'chirish")
 def del_free_menu(message):
     if message.from_user.id not in ADMIN_IDS: return
@@ -187,7 +183,6 @@ def process_dfree(call):
     bot.delete_message(call.message.chat.id, call.message.message_id)
     bot.send_message(call.message.chat.id, "✅ O'chirildi!")
 
-# Admin: Pullik soft qo'shish
 @bot.message_handler(func=lambda message: message.text == "➕ Soft (Pullik) qo'shish")
 def add_paid_start(message):
     if message.from_user.id not in ADMIN_IDS: return
@@ -211,7 +206,6 @@ def process_dpaid(call):
     bot.delete_message(call.message.chat.id, call.message.message_id)
     bot.send_message(call.message.chat.id, "✅ O'chirildi!")
 
-# Admin: Kanal qo'shish
 @bot.message_handler(func=lambda message: message.text == "📢 Obuna kanal qo'shish")
 def add_channel_start(message):
     if message.from_user.id not in ADMIN_IDS: return
@@ -235,7 +229,6 @@ def process_remove_channel(call):
     bot.delete_message(call.message.chat.id, call.message.message_id)
     bot.send_message(call.message.chat.id, f"✅ {ch_name} majburiy obunalardan olib tashlandi!")
 
-# Admin matn qadamlarini boshqarish (FSM o'rnida)
 @bot.message_handler(func=lambda message: message.from_user.id in user_states)
 def handle_admin_states(message):
     user_id = message.from_user.id
@@ -243,10 +236,10 @@ def handle_admin_states(message):
     
     if state == "wait_free_name":
         user_states[user_id] = {"step": "wait_free_content", "name": message.text}
-        bot.send_message(message.chat.id, "Endi ushbu tekin nastroyka uchun **matn yoki fayl/ma'lumot** yuboring:")
+        bot.send_message(message.chat.id, "Endi ushbu tekin nastroyka uchun **matn yoki ma'lumot** yuboring:")
     elif state == "wait_free_content":
         name = user_states[user_id]["name"]
-        content = message.text if message.text else "Fayl yuklandi"
+        content = message.text if message.text else "Ma'lumot"
         db_free_settings.append({"id": len(db_free_settings) + 1, "name": name, "content": content})
         del user_states[user_id]
         bot.send_message(message.chat.id, "✅ Tekin nastroyka qo'shildi!", reply_markup=get_main_menu(user_id))
@@ -256,7 +249,7 @@ def handle_admin_states(message):
         bot.send_message(message.chat.id, "Endi pullik soft uchun **matn yoki ma'lumot** yuboring:")
     elif state == "wait_paid_content":
         name = user_states[user_id]["name"]
-        content = message.text if message.text else "Fayl yuklandi"
+        content = message.text if message.text else "Ma'lumot"
         db_paid_settings.append({"id": len(db_paid_settings) + 1, "name": name, "content": content})
         del user_states[user_id]
         bot.send_message(message.chat.id, "✅ Pullik soft qo'shildi!", reply_markup=get_main_menu(user_id))
@@ -268,6 +261,6 @@ def handle_admin_states(message):
         del user_states[user_id]
         bot.send_message(message.chat.id, f"✅ {channel} majburiy obunalarga qo'shildi!", reply_markup=get_main_menu(user_id))
 
-# Botni uzluksiz ishga tushirish
 if __name__ == '__main__':
+    print("Bot ishga tushdi...")
     bot.infinity_polling(skip_pending=True)
