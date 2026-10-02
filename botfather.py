@@ -4,16 +4,18 @@ from telebot import types
 # --- SOZLAMALAR ---
 API_TOKEN = "8843916751:AAEaF0WS1IEhAwqGpOorfk74h3alMWu7Zvg"
 ADMIN_IDS = [8372285180, 8654996917]
-REQUIRED_CHANNELS = ["@bekuzbotmaker"]  # Majburiy kanal shu yerga qo'yildi!
+REQUIRED_CHANNELS = ["@bekuzbotmaker"]  # Boshlang'ich obuna kanali
 
 bot = telebot.TeleBot(API_TOKEN)
 
-# Vaqtinchalik baza
+# Vaqtinchalik baza (Matnlar va sozlamalar)
 db_free_settings = []
 db_paid_settings = []
 user_states = {}
 
-FOIZLI_NASTROYKALAR_TEXT = """
+# Asosiy matnlar (Admin panel orqali o'zgartirilishi mumkin)
+texts_db = {
+    "foizli": """
 ⚙️ **FOIZLI NASTROYKALAR (HEADSHOT & DPI)** 🎮
 
 🔹 **25% NASTROYKA** — 20 000 so'm ⚙️
@@ -23,12 +25,11 @@ FOIZLI_NASTROYKALAR_TEXT = """
 🔹 **90% NASTROYKA** — 60 000 so'm ⚙️
 🔹 **92% NASTROYKA** — 65 000 so'm ⚙️
 🔹 **94% NASTROYKA** — 80 000 so'm ⚙
-🔹 **97% NASTROYKA** — 90 000 so'm ⚙️️
+🔹 **97% NASTROYKA** — 90 000 so'm ⚙️
 
 💬 **Sotib olish uchun adminga yozing:** @jasurbrzl
-"""
-
-ALMAZ_TEXT = """
+""",
+    "almaz": """
 💎 **ALMAZ NARXLARI**
 🆔 **ID ORQALI QBERAMIZ** ⚡️
 
@@ -42,6 +43,7 @@ ALMAZ_TEXT = """
 
 💬 **Murojaat uchun:** @jasurbrzl
 """
+}
 
 # Obunani tekshirish funksiyasi
 def check_subscription(user_id: int) -> bool:
@@ -102,14 +104,14 @@ def show_foizli(message):
     if not check_subscription(message.from_user.id): return
     markup = types.InlineKeyboardMarkup()
     markup.add(types.InlineKeyboardButton("🛒 Sotib olish / Murojaat", url="https://t.me/jasurbrzl"))
-    bot.send_message(message.chat.id, FOIZLI_NASTROYKALAR_TEXT, parse_mode="Markdown", reply_markup=markup)
+    bot.send_message(message.chat.id, texts_db["foizli"], parse_mode="Markdown", reply_markup=markup)
 
 @bot.message_handler(func=lambda message: message.text == "💎 Almaz Narxlari")
 def show_almaz(message):
     if not check_subscription(message.from_user.id): return
     markup = types.InlineKeyboardMarkup()
     markup.add(types.InlineKeyboardButton("🛒 Xarid qilish / Murojaat", url="https://t.me/jasurbrzl"))
-    bot.send_message(message.chat.id, ALMAZ_TEXT, parse_mode="Markdown", reply_markup=markup)
+    bot.send_message(message.chat.id, texts_db["almaz"], parse_mode="Markdown", reply_markup=markup)
 
 @bot.message_handler(func=lambda message: message.text == "🎁 Tekin Nastroykalar")
 def show_free(message):
@@ -152,6 +154,7 @@ def admin_panel(message):
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
     markup.add(types.KeyboardButton("➕ Tekin Nastroyka qo'shish"), types.KeyboardButton("🗑 Tekin Nastroykani o'chirish"))
     markup.add(types.KeyboardButton("➕ Soft (Pullik) qo'shish"), types.KeyboardButton("🗑 Soft Nastroykani o'chirish"))
+    markup.add(types.KeyboardButton("✏️ Foizli Nastroykani o'zgartirish"), types.KeyboardButton("✏️ Almaz Narxini o'zgartirish"))
     markup.add(types.KeyboardButton("📢 Obuna kanal qo'shish"), types.KeyboardButton("❌ Obuna kanalni o'chirish"))
     markup.add(types.KeyboardButton("🔙 Asosiy Menyu"))
     bot.send_message(message.chat.id, "👑 Admin boshqaruv paneli:", reply_markup=markup)
@@ -206,6 +209,18 @@ def process_dpaid(call):
     bot.delete_message(call.message.chat.id, call.message.message_id)
     bot.send_message(call.message.chat.id, "✅ O'chirildi!")
 
+@bot.message_handler(func=lambda message: message.text == "✏️ Foizli Nastroykani o'zgartirish")
+def edit_foizli_start(message):
+    if message.from_user.id not in ADMIN_IDS: return
+    user_states[message.from_user.id] = {"step": "wait_edit_foizli"}
+    bot.send_message(message.chat.id, "Foizli nastroykalar uchun **yangi matnni** yuboring:")
+
+@bot.message_handler(func=lambda message: message.text == "✏️ Almaz Narxini o'zgartirish")
+def edit_almaz_start(message):
+    if message.from_user.id not in ADMIN_IDS: return
+    user_states[message.from_user.id] = {"step": "wait_edit_almaz"}
+    bot.send_message(message.chat.id, "Almaz narxlari uchun **yangi matnni** yuboring:")
+
 @bot.message_handler(func=lambda message: message.text == "📢 Obuna kanal qo'shish")
 def add_channel_start(message):
     if message.from_user.id not in ADMIN_IDS: return
@@ -254,6 +269,16 @@ def handle_admin_states(message):
         del user_states[user_id]
         bot.send_message(message.chat.id, "✅ Pullik soft qo'shildi!", reply_markup=get_main_menu(user_id))
         
+    elif state == "wait_edit_foizli":
+        texts_db["foizli"] = message.text
+        del user_states[user_id]
+        bot.send_message(message.chat.id, "✅ Foizli nastroykalar matni muvaffaqiyatli o'zgartirildi!", reply_markup=get_main_menu(user_id))
+
+    elif state == "wait_edit_almaz":
+        texts_db["almaz"] = message.text
+        del user_states[user_id]
+        bot.send_message(message.chat.id, "✅ Almaz narxlari matni muvaffaqiyatli o'zgartirildi!", reply_markup=get_main_menu(user_id))
+
     elif state == "wait_channel":
         channel = message.text.strip()
         if channel not in REQUIRED_CHANNELS:
