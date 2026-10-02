@@ -10,7 +10,7 @@ API_TOKEN = "8843916751:AAEaF0WS1IEhAwqGpOorfk74h3alMWu7Zvg"
 # Adminlarning Telegram ID raqamlari (Siz va sherigingiz):
 ADMIN_IDS = [8372285180, 8654996917]
 
-# Majburiy obuna kanallari/guruhlari ro'yxati (Admin panel orqali o'zgartirilishi mumkin)
+# Majburiy obuna kanallari/guruhlari ro'yxati
 REQUIRED_CHANNELS = ["@sizning_kanal"] 
 
 # Xotirada saqlanadigan bazalar
@@ -33,7 +33,6 @@ FOIZLI_NASTROYKALAR_TEXT = """
 💬 **Sotib olish uchun adminga yozing:** @jasurbrzl
 """
 
-# ALMAZ NARXLARI MATNI
 ALMAZ_TEXT = """
 💎 **ALMAZ NARXLARI**
 
@@ -60,7 +59,6 @@ bot = Bot(token=API_TOKEN)
 storage = MemoryStorage()
 dp = Dispatcher(bot, storage=storage)
 
-# FSM holatlari
 class AdminStates(StatesGroup):
     waiting_for_free_name = State()
     waiting_for_free_content = State()
@@ -68,7 +66,6 @@ class AdminStates(StatesGroup):
     waiting_for_paid_content = State()
     waiting_for_channel = State()
 
-# --- OBUNANI TEKSHIRISH ---
 async def check_subscription(user_id: int) -> bool:
     if not REQUIRED_CHANNELS:
         return True
@@ -81,7 +78,6 @@ async def check_subscription(user_id: int) -> bool:
             return False
     return True
 
-# --- ASOSIY MENYU ---
 def get_main_menu(user_id: int):
     keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
     keyboard.add(
@@ -89,7 +85,7 @@ def get_main_menu(user_id: int):
         types.KeyboardButton("💎 Soft Nastroyka (Pullik)")
     )
     keyboard.add(
-        types.KeyboardButton("⚙️️ Foizli Nastroykalar"),
+        types.KeyboardButton("⚙️ Foizli Nastroykalar"),
         types.KeyboardButton("💎 Almaz Narxlari")
     )
     keyboard.add(types.KeyboardButton("📢 Kanalimiz"))
@@ -97,11 +93,9 @@ def get_main_menu(user_id: int):
         keyboard.add(types.KeyboardButton("👑 Admin Panel"))
     return keyboard
 
-# --- START KOMANDASI ---
 @dp.message_handler(commands=['start'])
 async def cmd_start(message: types.Message):
     user_id = message.from_user.id
-    
     is_subscribed = await check_subscription(user_id)
     if not is_subscribed:
         channels_text = "\n".join([f"👉 {ch}" for ch in REQUIRED_CHANNELS])
@@ -121,37 +115,29 @@ async def cmd_start(message: types.Message):
 @dp.callback_query_handler(text="check_sub")
 async def process_check_sub(callback: types.CallbackQuery):
     user_id = callback.from_user.id
-    is_subscribed = await check_subscription(user_id)
-    if is_subscribed:
+    if await check_subscription(user_id):
         await callback.message.delete()
-        await callback.message.answer(
-            "Rahmat! Obuna tasdiqlandi. Asosiy menyu:",
-            reply_markup=get_main_menu(user_id)
-        )
+        await callback.message.answer("Rahmat! Obuna tasdiqlandi. Asosiy menyu:", reply_markup=get_main_menu(user_id))
     else:
         await callback.answer("❌ Hali hamma kanal/guruhlarga obuna bo'lmadingiz!", show_alert=True)
 
-# --- BO'LIMLAR ---
-@dp.message_handler(text="⚙️ Foizli Nastroykalar")
+@dp.message_handler(text="⚙️️ Foizli Nastroykalar")
 async def show_foizli(message: types.Message):
-    if not await check_subscription(message.from_user.id):
-        return await message.answer("Avval obuna bo'ling! /start ni bosing.")
+    if not await check_subscription(message.from_user.id): return
     markup = types.InlineKeyboardMarkup()
     markup.add(types.InlineKeyboardButton("🛒 Sotib olish / Murojaat", url="https://t.me/jasurbrzl"))
     await message.answer(FOIZLI_NASTROYKALAR_TEXT, parse_mode="Markdown", reply_markup=markup)
 
 @dp.message_handler(text="💎 Almaz Narxlari")
 async def show_almaz(message: types.Message):
-    if not await check_subscription(message.from_user.id):
-        return await message.answer("Avval obuna bo'ling! /start ni bosing.")
+    if not await check_subscription(message.from_user.id): return
     markup = types.InlineKeyboardMarkup()
     markup.add(types.InlineKeyboardButton("🛒 Xarid qilish / Murojaat", url="https://t.me/jasurbrzl"))
     await message.answer(ALMAZ_TEXT, parse_mode="Markdown", reply_markup=markup)
 
 @dp.message_handler(text="🎁 Tekin Nastroykalar")
 async def show_free(message: types.Message):
-    if not await check_subscription(message.from_user.id):
-        return await message.answer("Avval obuna bo'ling! /start ni bosing.")
+    if not await check_subscription(message.from_user.id): return
     if not db_free_settings:
         await message.answer("⚠️ Hozircha tekin nastroykalar mavjud emas, tez kunda qo'shiladi!")
         return
@@ -171,8 +157,7 @@ async def send_free(callback: types.CallbackQuery):
 
 @dp.message_handler(text="💎 Soft Nastroyka (Pullik)")
 async def show_paid(message: types.Message):
-    if not await check_subscription(message.from_user.id):
-        return await message.answer("Avval obuna bo'ling! /start ni bosing.")
+    if not await check_subscription(message.from_user.id): return
     if not db_paid_settings:
         await message.answer("⚠️ Hozircha pullik soft nastroykalar mavjud emas.")
         return
@@ -190,24 +175,13 @@ async def send_paid(callback: types.CallbackQuery):
     else:
         await callback.answer("Topilmadi!", show_alert=True)
 
-# --- ADMIN PANEL ---
 @dp.message_handler(text="👑 Admin Panel")
 async def admin_panel(message: types.Message):
-    if message.from_user.id not in ADMIN_IDS:
-        return
+    if message.from_user.id not in ADMIN_IDS: return
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
-    markup.add(
-        types.KeyboardButton("➕ Tekin Nastroyka qo'shish"),
-        types.KeyboardButton("🗑 Tekin Nastroykani o'chirish")
-    )
-    markup.add(
-        types.KeyboardButton("➕ Soft (Pullik) qo'shish"),
-        types.KeyboardButton("🗑 Soft Nastroykani o'chirish")
-    )
-    markup.add(
-        types.KeyboardButton("📢 Obuna kanal qo'shish"),
-        types.KeyboardButton("❌ Obuna kanalni o'chirish")
-    )
+    markup.add(types.KeyboardButton("➕ Tekin Nastroyka qo'shish"), types.KeyboardButton("🗑 Tekin Nastroykani o'chirish"))
+    markup.add(types.KeyboardButton("➕ Soft (Pullik) qo'shish"), types.KeyboardButton("🗑 Soft Nastroykani o'chirish"))
+    markup.add(types.KeyboardButton("📢 Obuna kanal qo'shish"), types.KeyboardButton("❌ Obuna kanalni o'chirish"))
     markup.add(types.KeyboardButton("🔙 Asosiy Menyu"))
     await message.answer("👑 Admin boshqaruv paneli:", reply_markup=markup)
 
@@ -215,7 +189,6 @@ async def admin_panel(message: types.Message):
 async def back_to_main(message: types.Message):
     await message.answer("Asosiy menyu:", reply_markup=get_main_menu(message.from_user.id))
 
-# --- TEKIN NASTROYKA QO'SHISH/O'CHIRISH ---
 @dp.message_handler(text="➕ Tekin Nastroyka qo'shish")
 async def add_free_start(message: types.Message):
     if message.from_user.id not in ADMIN_IDS: return
@@ -255,7 +228,6 @@ async def process_dfree(callback: types.CallbackQuery):
     await callback.message.delete()
     await callback.message.answer("✅ O'chirildi!")
 
-# --- SOFT (PULLIK) QO'SHISH/O'CHIRISH ---
 @dp.message_handler(text="➕ Soft (Pullik) qo'shish")
 async def add_paid_start(message: types.Message):
     if message.from_user.id not in ADMIN_IDS: return
@@ -295,7 +267,6 @@ async def process_dpaid(callback: types.CallbackQuery):
     await callback.message.delete()
     await callback.message.answer("✅ O'chirildi!")
 
-# --- MAJBURIY OBUNA KANAL/GURUH QO'SHISH VA O'CHIRISH ---
 @dp.message_handler(text="📢 Obuna kanal qo'shish")
 async def add_channel_start(message: types.Message):
     if message.from_user.id not in ADMIN_IDS: return
