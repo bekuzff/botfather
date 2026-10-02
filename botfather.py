@@ -4,7 +4,7 @@ from telebot import types
 # --- SOZLAMALAR ---
 API_TOKEN = "8843916751:AAEaF0WS1IEhAwqGpOorfk74h3alMWu7Zvg"
 ADMIN_IDS = [8372285180, 8654996917]
-REQUIRED_CHANNELS = []  # Boshida bo'sh, admin o'zi panel orqali qo'shadi!
+REQUIRED_CHANNELS = ["@bekuzbotmaker"]  # Majburiy kanal shu yerga qo'yildi!
 
 bot = telebot.TeleBot(API_TOKEN)
 
@@ -23,7 +23,7 @@ FOIZLI_NASTROYKALAR_TEXT = """
 🔹 **90% NASTROYKA** — 60 000 so'm ⚙️
 🔹 **92% NASTROYKA** — 65 000 so'm ⚙️
 🔹 **94% NASTROYKA** — 80 000 so'm ⚙
-🔹 **97% NASTROYKA** — 90 000 so'm ⚙️
+🔹 **97% NASTROYKA** — 90 000 so'm ⚙️️
 
 💬 **Sotib olish uchun adminga yozing:** @jasurbrzl
 """
@@ -46,7 +46,7 @@ ALMAZ_TEXT = """
 # Obunani tekshirish funksiyasi
 def check_subscription(user_id: int) -> bool:
     if not REQUIRED_CHANNELS:
-        return True  # Agar kanal qo'shilmagan bo'lsa, tekshirmaydi va to'g'ridan-to'g'ri o'tkazadi
+        return True
     for channel in REQUIRED_CHANNELS:
         try:
             member = bot.get_chat_member(chat_id=channel, user_id=user_id)
@@ -97,7 +97,7 @@ def process_check_sub(call):
     else:
         bot.answer_callback_query(call.id, "❌ Hali hamma kanal/guruhlarga obuna bo'lmadingiz!", show_alert=True)
 
-@bot.message_handler(func=lambda message: message.text == "⚙️️ Foizli Nastroykalar")
+@bot.message_handler(func=lambda message: message.text == "⚙️ Foizli Nastroykalar")
 def show_foizli(message):
     if not check_subscription(message.from_user.id): return
     markup = types.InlineKeyboardMarkup()
