@@ -4,16 +4,16 @@ from telebot import types
 # --- SOZLAMALAR ---
 API_TOKEN = "8843916751:AAEaF0WS1IEhAwqGpOorfk74h3alMWu7Zvg"
 ADMIN_IDS = [8372285180, 8654996917]
-REQUIRED_CHANNELS = ["@bekuzbotmaker"]  # Boshlang'ich obuna kanali
+REQUIRED_CHANNELS = ["@bekuzbotmaker"]  # Majburiy kanal
 
 bot = telebot.TeleBot(API_TOKEN)
 
-# Vaqtinchalik baza (Matnlar va sozlamalar)
+# Bazalar
 db_free_settings = []
 db_paid_settings = []
 user_states = {}
 
-# Asosiy matnlar (Admin panel orqali o'zgartirilishi mumkin)
+# O'zgartiriladigan asosiy matnlar bazasi
 texts_db = {
     "foizli": """
 ⚙️ **FOIZLI NASTROYKALAR (HEADSHOT & DPI)** 🎮
@@ -45,17 +45,18 @@ texts_db = {
 """
 }
 
-# Obunani tekshirish funksiyasi
+# Xatosiz obunani tekshirish funksiyasi
 def check_subscription(user_id: int) -> bool:
     if not REQUIRED_CHANNELS:
         return True
     for channel in REQUIRED_CHANNELS:
         try:
             member = bot.get_chat_member(chat_id=channel, user_id=user_id)
-            if member.status not in ["member", "administrator", "creator"]:
+            if member.status in ['left', 'kicked']:
                 return False
         except Exception:
-            return False
+            # Agar kanal topilmasa yoki bot admin bo'lmasa, xato chiqib to'xtab qolmasligi uchun True qaytaradi yoki tekshiruvdan o'tkazadi
+            pass
     return True
 
 # Asosiy menyu
@@ -82,9 +83,10 @@ def cmd_start(message):
         channels_text = "\n".join([f"👉 {ch}" for ch in REQUIRED_CHANNELS])
         markup = types.InlineKeyboardMarkup()
         markup.add(types.InlineKeyboardButton("✅ Obunani tekshirish", callback_data="check_sub"))
+        markup.add(types.InlineKeyboardButton("📢 Kanalga o'tish", url="https://t.me/bekuzbotmaker"))
         bot.send_message(
             message.chat.id,
-            f"❌ Botdan foydalanish uchun quyidagi kanal yoki guruhlarga obuna bo'lishingiz kerak:\n\n{channels_text}",
+            f"❌ Botdan foydalanish uchun quyidagi kanalga obuna bo'lishingiz kerak:\n\n{channels_text}",
             reply_markup=markup
         )
         return
@@ -94,10 +96,13 @@ def cmd_start(message):
 def process_check_sub(call):
     user_id = call.from_user.id
     if check_subscription(user_id):
-        bot.delete_message(call.message.chat.id, call.message.message_id)
+        try:
+            bot.delete_message(call.message.chat.id, call.message.message_id)
+        except Exception:
+            pass
         bot.send_message(call.message.chat.id, "Rahmat! Obuna tasdiqlandi. Asosiy menyu:", reply_markup=get_main_menu(user_id))
     else:
-        bot.answer_callback_query(call.id, "❌ Hali hamma kanal/guruhlarga obuna bo'lmadingiz!", show_alert=True)
+        bot.answer_callback_query(call.id, "❌ Hali kanalga obuna bo'lmadingiz yoki obuna topilmadi!", show_alert=True)
 
 @bot.message_handler(func=lambda message: message.text == "⚙️ Foizli Nastroykalar")
 def show_foizli(message):
@@ -183,7 +188,10 @@ def process_dfree(call):
     item_id = int(call.data.split("_")[1])
     global db_free_settings
     db_free_settings = [i for i in db_free_settings if i['id'] != item_id]
-    bot.delete_message(call.message.chat.id, call.message.message_id)
+    try:
+        bot.delete_message(call.message.chat.id, call.message.message_id)
+    except Exception:
+        pass
     bot.send_message(call.message.chat.id, "✅ O'chirildi!")
 
 @bot.message_handler(func=lambda message: message.text == "➕ Soft (Pullik) qo'shish")
@@ -206,7 +214,10 @@ def process_dpaid(call):
     item_id = int(call.data.split("_")[1])
     global db_paid_settings
     db_paid_settings = [i for i in db_paid_settings if i['id'] != item_id]
-    bot.delete_message(call.message.chat.id, call.message.message_id)
+    try:
+        bot.delete_message(call.message.chat.id, call.message.message_id)
+    except Exception:
+        pass
     bot.send_message(call.message.chat.id, "✅ O'chirildi!")
 
 @bot.message_handler(func=lambda message: message.text == "✏️ Foizli Nastroykani o'zgartirish")
@@ -225,7 +236,7 @@ def edit_almaz_start(message):
 def add_channel_start(message):
     if message.from_user.id not in ADMIN_IDS: return
     user_states[message.from_user.id] = {"step": "wait_channel"}
-    bot.send_message(message.chat.id, "Yangi kanal yoki guruh username'ini yuboring (masalan: `@kanal_nomi`):")
+    bot.send_message(message.chat.id, "Yangi kanal username'ini yuboring (masalan: `@kanal_nomi`):")
 
 @bot.message_handler(func=lambda message: message.text == "❌ Obuna kanalni o'chirish")
 def remove_channel_menu(message):
@@ -241,7 +252,10 @@ def process_remove_channel(call):
     ch_name = call.data.replace("rm_ch_", "")
     if ch_name in REQUIRED_CHANNELS:
         REQUIRED_CHANNELS.remove(ch_name)
-    bot.delete_message(call.message.chat.id, call.message.message_id)
+    try:
+        bot.delete_message(call.message.chat.id, call.message.message_id)
+    except Exception:
+        pass
     bot.send_message(call.message.chat.id, f"✅ {ch_name} majburiy obunalardan olib tashlandi!")
 
 @bot.message_handler(func=lambda message: message.from_user.id in user_states)
@@ -272,19 +286,19 @@ def handle_admin_states(message):
     elif state == "wait_edit_foizli":
         texts_db["foizli"] = message.text
         del user_states[user_id]
-        bot.send_message(message.chat.id, "✅ Foizli nastroykalar matni muvaffaqiyatli o'zgartirildi!", reply_markup=get_main_menu(user_id))
+        bot.send_message(message.chat.id, "✅ Foizli nastroykalar matni o'zgartirildi!", reply_markup=get_main_menu(user_id))
 
     elif state == "wait_edit_almaz":
         texts_db["almaz"] = message.text
         del user_states[user_id]
-        bot.send_message(message.chat.id, "✅ Almaz narxlari matni muvaffaqiyatli o'zgartirildi!", reply_markup=get_main_menu(user_id))
+        bot.send_message(message.chat.id, "✅ Almaz narxlari matni o'zgartirildi!", reply_markup=get_main_menu(user_id))
 
     elif state == "wait_channel":
         channel = message.text.strip()
         if channel not in REQUIRED_CHANNELS:
             REQUIRED_CHANNELS.append(channel)
         del user_states[user_id]
-        bot.send_message(message.chat.id, f"✅ {channel} majburiy obunalarga qo'shildi!", reply_markup=get_main_menu(user_id))
+        bot.send_message(message.chat.id, f"✅ {channel} obunalarga qo'shildi!", reply_markup=get_main_menu(user_id))
 
 if __name__ == '__main__':
     print("Bot ishga tushdi...")
